@@ -5627,6 +5627,8 @@
 
     if (wrongCount === 0) {
       html += '<div class="results-sub" style="margin-top:16px;">全問正解でした。素晴らしい出来です。</div>';
+    } else if (state.total > 0 && state.correct / state.total >= 0.8) {
+      html += '<div class="results-sub" style="margin-top:16px;">高い正答率です。間違えた問題を復習して全問正解を目指しましょう。</div>';
     }
 
     html += '<div class="review-section show">';
@@ -5789,19 +5791,6 @@
   darkModeCheckbox.addEventListener('change', function () {
     applyDarkMode(darkModeCheckbox.checked);
     try { localStorage.setItem('depreDarkMode', darkModeCheckbox.checked ? '1' : '0'); } catch (e) {}
-  });
-
-  const infoBtn = document.getElementById('infoBtn');
-  const infoModalOverlay = document.getElementById('infoModalOverlay');
-  const infoModalCloseBtn = document.getElementById('infoModalCloseBtn');
-  const infoModalXBtn = document.getElementById('infoModalXBtn');
-  function openInfoModal() { infoModalOverlay.classList.add('show'); }
-  function closeInfoModal() { infoModalOverlay.classList.remove('show'); }
-  infoBtn.addEventListener('click', openInfoModal);
-  infoModalCloseBtn.addEventListener('click', closeInfoModal);
-  infoModalXBtn.addEventListener('click', closeInfoModal);
-  infoModalOverlay.addEventListener('click', function (e) {
-    if (e.target === infoModalOverlay) closeInfoModal();
   });
 
   gradeBtn.addEventListener('click', grade);

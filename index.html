@@ -37,9 +37,9 @@
     </div>
 
     <div class="depre-start" id="startPanel">
-      <button type="button" class="info-btn" id="infoBtn" aria-label="このサイトについて">
+      <a class="info-btn" id="infoBtn" href="about.html" aria-label="このサイトについて">
         <span class="toggle-icon">info</span>
-      </button>
+      </a>
       <label class="dark-mode-toggle" id="darkModeToggle">
         <span class="toggle-icon sun">wb_sunny</span>
         <input type="checkbox" id="darkModeCheckbox">
@@ -163,33 +163,6 @@
     </div>
 
     <div class="depre-results" id="resultsPanel" style="display:none;"></div>
-  </div>
-
-  <div class="info-modal-overlay" id="infoModalOverlay">
-    <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
-      <button type="button" class="info-modal-x" id="infoModalXBtn" aria-label="閉じる">
-        <span class="toggle-icon">close</span>
-      </button>
-      <h2 class="info-modal-title" id="infoModalTitle"><span class="info-modal-title-marker">このサイトについて</span></h2>
-      <p class="info-modal-desc">
-        ご訪問いただきありがとうございます。<br>
-        このサイトは簿記好きな管理人が「簡単すぎない練習問題」を求めて制作したWebサイトです。
-        <span style="display:block; margin-top:16px;">問題・解答に関する修正依頼やご意見・ご要望等は<a href="https://docs.google.com/forms/d/e/1FAIpQLScCEm_oxqjb2fnk4E5-ko0RU8uBDGzriEG1r4G6XmYSlHN_Rw/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer">お問い合わせフォーム</a>または<a href="https://x.com/rnitell" target="_blank" rel="noopener noreferrer">管理人のXアカウント</a>からお知らせください。</span>
-      </p>
-      <div class="info-modal-admin">
-        <a class="info-admin-icon" href="https://x.com/rnitell" target="_blank" rel="noopener noreferrer" aria-label="管理人のXアカウント"></a>
-        <div class="info-admin-text">
-          <div class="info-admin-name">管理人：みる(<a href="https://x.com/rnitell" target="_blank" rel="noopener noreferrer">@rnitell</a>)</div>
-          <div class="info-admin-bio">
-            2024年 日商簿記1級合格<br>
-            2025年 税理士試験財務諸表論合格<br>
-            簿記学習においてのモットーは<br>
-            「習うより慣れろ」
-          </div>
-        </div>
-      </div>
-      <button type="button" class="depre-btn wide" id="infoModalCloseBtn">閉じる</button>
-    </div>
   </div>
 </div>
 
