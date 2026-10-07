@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>減価償却ドリル</title>
+<meta name="description" content="簡単すぎない、毎回ちがう練習問題。数値が毎回ランダムに変わる減価償却の無料演習サイト。日商簿記3級・2級・1級、税理士試験、会計士試験に対応し、多彩な出題形式で解き方が身につきます。">
+<link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B9C90">
+<script>
+(function () {
+  var root = document.documentElement;
+  root.classList.add('fonts-loading');
+  try { if (localStorage.getItem('depreDarkMode') === '1') root.classList.add('dark-bg'); } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Coiny&family=Zen+Maru+Gothic:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,1,0&icon_names=close,info,kid_star,local_fire_department,moon_stars,print,psychiatry,refresh,settings,wb_sunny&display=block">
+<link rel="stylesheet" href="https://unpkg.com/scroll-hint@latest/css/scroll-hint.css">
+<link rel="stylesheet" href="depreciation-practice.css">
+</head>
+<body>
+
+<div class="depre-app">
+  <div class="depre-wrap">
+    <div class="depre-head" id="quizHeader" style="display:none;">
+      <div class="depre-title-sm" id="headerTitle">減価償却ドリル</div>
+      <div class="depre-score">
+        <div class="label">セイセキ</div>
+        <div class="nums"><span id="correctCount">0</span><span class="total"> / <span id="totalCount">0</span></span></div>
+        <div class="batch-total">全<span id="batchTotalCount">10</span>問</div>
+      </div>
+    </div>
+
+    <div class="depre-start" id="startPanel">
+      <button type="button" class="info-btn" id="infoBtn" aria-label="このサイトについて">
+        <span class="toggle-icon">info</span>
+      </button>
+      <label class="dark-mode-toggle" id="darkModeToggle">
+        <span class="toggle-icon sun">wb_sunny</span>
+        <input type="checkbox" id="darkModeCheckbox">
+        <span class="dark-toggle-track"><span class="dark-toggle-thumb"></span></span>
+        <span class="toggle-icon moon">moon_stars</span>
+      </label>
+      <div class="start-title-card">
+        <div class="start-title">
+          <span class="title-line">減価償却</span><br>
+          <span class="title-line">ドリル</span>
+        </div>
+      </div>
+      <div class="diff-row">
+        <label class="diff-card" data-diff="easy">
+          <input type="checkbox" class="diff-check" value="easy">
+          <span class="diff-emoji">psychiatry</span>
+          <span class="diff-name">Easy</span>
+          <span class="diff-desc">日商簿記3級</span>
+        </label>
+        <label class="diff-card" data-diff="normal">
+          <input type="checkbox" class="diff-check" value="normal">
+          <span class="diff-emoji">kid_star</span>
+          <span class="diff-name">Normal</span>
+          <span class="diff-desc">日商簿記3～2級</span>
+        </label>
+        <label class="diff-card" data-diff="hard">
+          <input type="checkbox" class="diff-check" value="hard">
+          <span class="diff-emoji">local_fire_department</span>
+          <span class="diff-name">Hard</span>
+          <span class="diff-desc">3級〜1級すべて</span>
+        </label>
+        <label class="diff-card" data-diff="custom">
+          <input type="checkbox" class="diff-check" value="custom">
+          <span class="diff-emoji">settings</span>
+          <span class="diff-name">Custom</span>
+          <span class="diff-desc">出題範囲設定</span>
+        </label>
+      </div>
+      <div class="custom-panel" id="customPanel"></div>
+      <div class="option-panel" id="optionPanel">
+        <button type="button" class="option-toggle" id="optionToggle" aria-expanded="false" aria-controls="optionBody">
+          <span class="option-title">出題オプション</span>
+          <span class="option-summary" id="optionSummary">10問／1問ずつ／級表示</span>
+          <span class="option-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="option-body" id="optionBody">
+          <div class="option-body-inner">
+            <div class="option-count">
+              <div class="option-count-head">
+                <span class="option-label">設問数</span>
+                <span class="option-count-value"><span id="questionCountValue">10</span>問</span>
+              </div>
+              <input type="range" class="option-range" id="questionCountRange" min="1" max="20" step="1" value="10" aria-label="設問数">
+            </div>
+            <label class="custom-row option-row"><input type="checkbox" id="batchModeCheck"><span class="cute-box"></span><span>まとめて出題する<small class="option-note">全問を1ページに表示して一括で解答します</small></span></label>
+            <label class="custom-row option-row"><input type="checkbox" id="hideLevelCheck"><span class="cute-box"></span><span>出題級を隠す<small class="option-note">級は解答・解説の表示時に表示します</small></span></label>
+          </div>
+        </div>
+      </div>
+      <button class="depre-btn start-btn" id="startBtn">開始する</button>
+      <button class="print-text-link" id="printBtn"><span class="btn-icon">print</span> 印刷用ページを表示する</button>
+    </div>
+
+    <div class="depre-print-page" id="printQuestionsPanel" style="display:none;">
+      <div class="print-toolbar no-print">
+        <div class="print-toolbar-left">
+          <button class="depre-btn print-back-btn" id="printQBackBtn">← トップへ戻る</button>
+          <button class="depre-btn pink" id="printQRefreshBtn"><span class="btn-icon">refresh</span> 更新する</button>
+        </div>
+        <div class="print-toolbar-right">
+          <button class="depre-btn secondary" id="printQShowAnswersBtn">解答・解説を見る →</button>
+          <button class="depre-btn" id="printQPrintBtn"><span class="btn-icon">print</span> 印刷する</button>
+        </div>
+      </div>
+      <div class="print-sheet" id="printQuestionsSheet"></div>
+    </div>
+
+    <div class="depre-print-page" id="printAnswersPanel" style="display:none;">
+      <div class="print-toolbar no-print">
+        <button class="depre-btn print-back-btn" id="printABackBtn">← 問題ページへ戻る</button>
+        <button class="depre-btn" id="printAPrintBtn"><span class="btn-icon">print</span> 印刷する</button>
+      </div>
+      <div class="print-sheet" id="printAnswersSheet"></div>
+    </div>
+
+    <div class="depre-card" id="problemCard" style="display:none;">
+      <div class="depre-qno">
+        第<span id="qNumber">1</span>問 <span class="q-of-total">/ <span id="qTotal">10</span></span>
+        <span class="type-tag" id="typeTag"></span>
+      </div>
+
+      <div class="depre-question" id="questionText"></div>
+
+      <div class="depre-answer-row">
+        <input type="text" inputmode="numeric" id="answerInput" class="depre-input" placeholder="" autocomplete="off" />
+        <span class="depre-yen">円</span>
+        <button class="depre-btn" id="gradeBtn">解答する</button>
+      </div>
+
+      <div class="depre-feedback" id="feedback">
+        <div class="depre-verdict">
+          <div class="verdict-badge" id="verdictBadge">○</div>
+          <div>
+            <div class="verdict-text" id="verdictText"></div>
+            <div class="verdict-sub" id="verdictSub"></div>
+          </div>
+        </div>
+        <div class="depre-correction" id="correction" style="display:none;"></div>
+        <div class="depre-explain" id="explainBody"></div>
+      </div>
+
+      <div class="depre-foot-row">
+        <button class="depre-btn ghost" id="quitBtn" style="display:none;">終了する</button>
+        <button class="depre-btn secondary" id="nextBtn" style="display:none;">次の問題へ →</button>
+      </div>
+    </div>
+
+    <div class="depre-card" id="batchCard" style="display:none;">
+      <div id="batchList"></div>
+      <button class="depre-btn batch-grade-btn" id="batchGradeBtn">解答する</button>
+    </div>
+
+    <div class="depre-results" id="resultsPanel" style="display:none;"></div>
+  </div>
+
+  <div class="info-modal-overlay" id="infoModalOverlay">
+    <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+      <button type="button" class="info-modal-x" id="infoModalXBtn" aria-label="閉じる">
+        <span class="toggle-icon">close</span>
+      </button>
+      <h2 class="info-modal-title" id="infoModalTitle"><span class="info-modal-title-marker">このサイトについて</span></h2>
+      <p class="info-modal-desc">
+        ご訪問いただきありがとうございます。<br>
+        このサイトは簿記好きな管理人が「簡単すぎない練習問題」を求めて制作したWebサイトです。
+        <span style="display:block; margin-top:16px;">問題・解答に関する修正依頼やご意見・ご要望等は<a href="https://docs.google.com/forms/d/e/1FAIpQLScCEm_oxqjb2fnk4E5-ko0RU8uBDGzriEG1r4G6XmYSlHN_Rw/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer">お問い合わせフォーム</a>または<a href="https://x.com/rnitell" target="_blank" rel="noopener noreferrer">管理人のXアカウント</a>からお知らせください。</span>
+      </p>
+      <div class="info-modal-admin">
+        <a class="info-admin-icon" href="https://x.com/rnitell" target="_blank" rel="noopener noreferrer" aria-label="管理人のXアカウント"></a>
+        <div class="info-admin-text">
+          <div class="info-admin-name">管理人：みる(<a href="https://x.com/rnitell" target="_blank" rel="noopener noreferrer">@rnitell</a>)</div>
+          <div class="info-admin-bio">
+            2024年 日商簿記1級合格<br>
+            2025年 税理士試験財務諸表論合格<br>
+            簿記学習においてのモットーは<br>
+            「習うより慣れろ」
+          </div>
+        </div>
+      </div>
+      <button type="button" class="depre-btn wide" id="infoModalCloseBtn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/scroll-hint@latest/js/scroll-hint.min.js"></script>
+<script src="depreciation-practice.js"></script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var shown = false;
+  function reveal() {
+    if (shown) return;
+    shown = true;
+    root.classList.remove('fonts-loading');
+  }
+  // 回線が遅い場合でも、最大1秒で表示する
+  setTimeout(reveal, 1000);
+  if (!document.fonts || !document.fonts.load) { reveal(); return; }
+  var sample = '減価償却ドリル簡単すぎない練習問題開始する日商簿記級税理士試験公認会計士出題範囲設定';
+  Promise.all([
+    document.fonts.load('700 1em "Zen Maru Gothic"', sample),
+    document.fonts.load('400 1em "Zen Kaku Gothic New"', sample),
+    document.fonts.load('700 1em "Zen Kaku Gothic New"', sample),
+    document.fonts.load('1em "Coiny"', 'EASYNORMALHARDCUSTOM'),
+    document.fonts.load('24px "Material Symbols Rounded"', 'info')
+  ]).then(function () { return document.fonts.ready; })
+    .then(reveal, reveal);
+})();
+</script>
+</body>
+</html>
