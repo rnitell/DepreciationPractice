@@ -2495,6 +2495,185 @@
     };
   }
 
+  /* ---------- 3級: 付随費用 ---------- */
+  // 取得原価 = 購入代価 + 付随費用。扱いが分かれる税金は問題文で処理を明記し、付随費用ではない支出(保険料)も混ぜる
+  const INCIDENTAL_ITEMS = {
+    '備品': ['引取運賃', '据付費', '購入手数料'],
+    '機械装置': ['引取運賃', '据付費', '試運転費', '購入手数料'],
+    '建物': ['仲介手数料', '登記料']
+  };
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const k = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[k]; a[k] = t;
+    }
+    return a;
+  }
+  function genIncidentalCosts() {
+    const item = pick(['備品', '機械装置', '建物', '建物']);
+    const isBuilding = item === '建物';
+    const years = yearsForItem(item, YEARS);
+    const residualRate = pickResidualRate();
+    const acq = determineAcqPeriod(0.4, 0.4); // 期首取得40%・期中取得60%
+    const useFYStart = acq.useFYStart, months = acq.months;
+    // すべての金額を「この単位の倍数」にそろえると、どの項目を誤って含めても(含め忘れても)答えが整数になる
+    const intUnit = (residualRate === 0 ? 1 : 10) * years * acq.multipleNeeded;
+    const itemUnit = lcm(intUnit, 100), priceUnit = lcm(intUnit, 10000);
+    const roundU = function (v) { return Math.max(itemUnit, Math.round(v / itemUnit) * itemUnit); };
+    const priceLow = isBuilding ? 5000000 : 550000, priceHigh = isBuilding ? 300000000 : 5500000;
+    const pLo = Math.ceil(priceLow / priceUnit);
+    const pHi = Math.max(pLo, Math.floor(priceHigh / priceUnit));
+    const price = priceUnit * randInt(pLo, pHi);
+
+    // 扱いが分かれる項目(建物のみ):取得原価に含めるかどうかを問題文で明記する
+    let taxName = null, taxIncluded = false;
+    if (isBuilding && Math.random() < 0.75) {
+      taxName = pick(['不動産取得税', '登録免許税']);
+      taxIncluded = Math.random() < 0.5;
+    }
+    // 必ず取得原価に含める付随費用(登録免許税を出すときは、内容が重なる登記料を出さない)
+    const candidates = INCIDENTAL_ITEMS[item].filter(function (n) { return !(taxName === '登録免許税' && n === '登記料'); });
+    const incCount = Math.min(candidates.length, randInt(1, isBuilding ? 2 : 3));
+    const incNames = shuffled(candidates).slice(0, incCount);
+    // 付随費用ではない支出(取得原価に含めない)
+    const hasInsurance = Math.random() < 0.6;
+
+    const inCost = incNames.map(function (n) { return { name: n, amount: roundU(price * randInt(10, 40) / 1000), kind: 'inc' }; });
+    if (taxName && taxIncluded) inCost.push({ name: taxName, amount: roundU(price * randInt(15, 40) / 1000), kind: 'tax' });
+    const others = [];
+    if (taxName && !taxIncluded) others.push({ name: taxName, amount: roundU(price * randInt(15, 40) / 1000), kind: 'tax' });
+    const insName = '1年分の火災保険料';
+    if (hasInsurance) others.push({ name: insName, amount: roundU(price * (isBuilding ? randInt(1, 5) : randInt(8, 25)) / 1000), kind: 'ins' });
+    const cost = price + inCost.reduce(function (s, x) { return s + x.amount; }, 0);
+    const residual = residualRate === 0 ? 0 : cost / 10;
+    const annual = (cost - residual) / years;
+    const answer = useFYStart ? annual : annual * months / 12;
+    const listed = shuffled(inCost.concat(others));
+
+    let acqDateStr;
+    if (useFYStart) {
+      const d = fyMonthToDate(CURRENT_FY, 1);
+      acqDateStr = dateStr(d.year, d.month);
+    } else {
+      const d = fyMonthToDate(CURRENT_FY, 13 - months);
+      acqDateStr = acq.useFixedMidYearDate ? dateStr(d.year, d.month) : dateStrAnyDay(d.year, d.month);
+    }
+
+    const question = '当社は' + acqDateStr + 'に' + item + 'を購入し、購入代価 ' + yen(price) + 'のほか、' +
+      listed.map(function (x) { return x.name + ' ' + yen(x.amount); }).join('、') + 'を支払った。' +
+      (taxName ? 'なお、' + taxName + 'は' + (taxIncluded ? '取得原価に含めて処理する' : '租税公課として費用処理する') + '。' : '') +
+      'この' + item + '(' + residualText(residualRate) + '、耐用年数 ' + years + '年)を定額法により減価償却する場合、当期(' + fyLabel(CURRENT_FY) + ')の減価償却費を求めなさい。';
+
+    const inListed = listed.filter(function (x) { return inCost.indexOf(x) >= 0; });
+    const costExplain = '<div class="step">固定資産の取得原価は、購入代価に付随費用(固定資産を使用できる状態にするまでにかかった費用)を加えた金額とする</div>' +
+      (taxName ? '<div class="step">' + taxName + 'は、問題文の指示により' + (taxIncluded ? '取得原価に含める' : '租税公課として費用処理するため、取得原価に含めない') + '</div>' : '') +
+      (hasInsurance ? '<div class="step">火災保険料は、固定資産を使用できる状態にするための費用ではないため、取得原価に含めない(支払保険料として費用処理する)</div>' : '') +
+      '<div class="step">取得原価 = 購入代価 + ' + inListed.map(function (x) { return x.name; }).join(' + ') + '</div>' +
+      '<div class="step formula">' + yen(price) + ' + ' + inListed.map(function (x) { return yen(x.amount); }).join(' + ') + ' = ' + yen(cost) + '</div>';
+    const depExplain = useFYStart
+      ? '<div class="step" style="margin-top:16px;">当期首(' + acqDateStr + ')に取得しているため、当期は1年分の減価償却費を計上する</div>' +
+        straightAnnualSteps(cost, residual, years, null, annual, true)
+      : '<div class="step" style="margin-top:16px;">取得日から当期末までの使用月数は' + months + 'か月なので月割計算する</div>' +
+        straightAnnualSteps(cost, residual, years, null, annual, false) +
+        '<div class="step formula">当期分 = ' + yen(annual) + ' × ' + months + ' ÷ 12 = ' + yen(answer) + '</div>';
+
+    return {
+      level: '3', category: '付随費用(' + (useFYStart ? '年間' : '月割') + ')',
+      assetCost: cost,
+      question: question,
+      answer: answer,
+      explain: costExplain + depExplain
+    };
+  }
+
+  /* ---------- 2級: 割賦購入 ---------- */
+  // 現金正価を示す形(showCash)と、支払総額・利息相当額から取得原価を求める形の2パターン
+  function genInstallmentPurchase() {
+    const item = pick(ITEMS_DECLINING_OK);
+    const years = pick(YEARS);
+    const residualRate = pickResidualRate();
+    const acq = determineAcqPeriod(0.4, 0.4);
+    const useFYStart = acq.useFYStart, months = acq.months;
+    const factor = residualRate === 0 ? acq.multipleNeeded : lcm(acq.multipleNeeded, 9);
+    const unit = years * 100 * factor;
+    const lo = Math.max(1, Math.ceil(MIN_ASSET_AMOUNT / unit));
+    const hi = Math.max(lo + 3, Math.floor(6000000 / unit));
+    const annual = factor * randInt(lo, hi) * 100;
+    const dep = annual * years;
+    const { cost, residual } = buildCostFromDep(dep, residualRate);
+    const answer = useFYStart ? annual : annual * months / 12;
+
+    // 支払条件(毎月払い)。利息相当額は現金正価のおよそ3〜12%
+    const count = pick([6, 10, 12, 18, 20, 24]);
+    const pct = randInt(3, 12);
+    // 支払総額が下の単位の倍数になるよう1回あたりの支払額の刻みを決める(利息込みで誤って計算しても答えが整数になる)
+    const intUnit = (residualRate === 0 ? 1 : 10) * years * acq.multipleNeeded;
+    const instUnit = lcm(100, intUnit / gcd(intUnit, count));
+    const installment = Math.max(instUnit, Math.round(cost * (100 + pct) / 100 / count / instUnit) * instUnit);
+    const total = installment * count;
+    const interest = total - cost;
+
+    let acqDateStr;
+    if (useFYStart) {
+      const d = fyMonthToDate(CURRENT_FY, 1);
+      acqDateStr = dateStr(d.year, d.month);
+    } else {
+      const d = fyMonthToDate(CURRENT_FY, 13 - months);
+      acqDateStr = acq.useFixedMidYearDate ? dateStr(d.year, d.month) : dateStrAnyDay(d.year, d.month);
+    }
+
+    const showCash = Math.random() < 0.5;          // 現金正価を示す
+    const showTotal = showCash || Math.random() < 0.5;  // 支払総額を示す(現金正価を示す形では必ず示して引っ掛けにする)
+    const payByNote = Math.random() < 0.4;         // 約束手形の振出しによる支払い
+    const totalLabel = payByNote ? '額面総額' : '支払総額';
+
+    let payText;
+    if (payByNote) {
+      payText = '代金は、毎月末に支払期日が到来する額面' + yen(installment) + 'の約束手形' + count + '枚' +
+        (showTotal ? '(額面総額' + yen(total) + (showCash ? '' : '、うち利息相当額' + yen(interest)) + ')' : '') + 'を振り出して支払った。' +
+        (!showCash && !showTotal ? 'なお、手形の額面総額には利息相当額' + yen(interest) + 'が含まれている。' : '');
+    } else {
+      payText = '代金は、毎月末に' + yen(installment) + 'ずつ' + count + '回の分割で支払う' +
+        (showTotal ? '(支払総額' + yen(total) + (showCash ? '' : '、うち利息相当額' + yen(interest)) + ')' : '') + '。' +
+        (!showCash && !showTotal ? 'なお、支払総額には利息相当額' + yen(interest) + 'が含まれている。' : '');
+    }
+
+    const question = '当社は' + acqDateStr + 'に、' + item + (showCash ? '(現金正価 ' + yen(cost) + ')' : '') + 'を割賦契約により購入した。' +
+      payText + 'この' + item + '(' + residualText(residualRate) + '、耐用年数 ' + years + '年)を定額法により減価償却する場合、当期(' + fyLabel(CURRENT_FY) + ')の減価償却費を求めなさい。';
+
+    const totalSteps = '<div class="step">' + totalLabel + ' = ' + (payByNote ? '手形1枚あたりの額面 × 枚数' : '1回あたりの支払額 × 支払回数') + '</div>' +
+      '<div class="step">' + yen(installment) + ' × ' + count + (payByNote ? '枚' : '回') + ' = ' + yen(total) + '</div>';
+    let costExplain;
+    if (showCash) {
+      costExplain = '<div class="step">割賦購入では、現金正価(現金で一括購入した場合の価額)を取得原価とする</div>' +
+        '<div class="step">' + totalLabel + 'と現金正価の差額は利息相当額であり、取得原価に含めず、前払利息または支払利息として処理する</div>' +
+        '<div class="step">利息相当額 = ' + totalLabel + ' − 現金正価</div>' +
+        '<div class="step">' + yen(total) + ' − ' + yen(cost) + ' = ' + yen(interest) + '</div>' +
+        '<div class="step formula">取得原価 = 現金正価 = ' + yen(cost) + '</div>';
+    } else {
+      costExplain = '<div class="step">割賦購入では、' + totalLabel + 'から利息相当額を除いた金額(現金正価)を取得原価とする</div>' +
+        '<div class="step">利息相当額は取得原価に含めず、前払利息または支払利息として処理する</div>' +
+        (showTotal ? '' : totalSteps) +
+        '<div class="step">取得原価 = ' + totalLabel + ' − 利息相当額</div>' +
+        '<div class="step formula">' + yen(total) + ' − ' + yen(interest) + ' = ' + yen(cost) + '</div>';
+    }
+    const depExplain = useFYStart
+      ? '<div class="step" style="margin-top:16px;">当期首(' + acqDateStr + ')に取得しているため、当期は1年分の減価償却費を計上する</div>' +
+        straightAnnualSteps(cost, residual, years, null, annual, true)
+      : '<div class="step" style="margin-top:16px;">取得日から当期末までの使用月数は' + months + 'か月なので月割計算する</div>' +
+        straightAnnualSteps(cost, residual, years, null, annual, false) +
+        '<div class="step formula">当期分 = ' + yen(annual) + ' × ' + months + ' ÷ 12 = ' + yen(answer) + '</div>';
+
+    return {
+      level: '2', category: '割賦購入(' + (useFYStart ? '年間' : '月割') + ')',
+      assetCost: cost,
+      question: question,
+      answer: answer,
+      explain: costExplain + depExplain
+    };
+  }
+
   /* ---------- 2級: 資産の交換(同種・異種) ---------- */
   /* ---------- 1級: リース資産(現在価値基準) ---------- */
   const LEASE1_DECL_NUMER = { 4: 1, 5: 2, 8: 1, 10: 1 };
@@ -5174,8 +5353,165 @@
     };
   }
 
+  /* ---------- 1級: 在外支店・在外子会社 ---------- */
+  function usd(n) { return Math.round(n).toLocaleString('ja-JP') + 'ドル'; }
+  function fyEndDateStr(fy) {
+    return FY_START_MONTH === 4 ? 'X' + (fy + 1) + '年3月31日' : 'X' + fy + '年12月31日';
+  }
+  function fyRangeStr(fy) { return fyStartDateStr(fy) + '～' + fyEndDateStr(fy); }
+  function genForeignOperation() {
+    const isBranch = Math.random() < 0.5;
+    const item = pick(['備品', '備品', '機械装置', '車両運搬具', '建物']);
+    const years = yearsForItem(item, YEARS);
+    const residualRate = pickResidualRate();
+    // 取得時期:当期取得(期首・期中)が半分、前期以前(1〜2期前)が半分
+    const elapsed = Math.random() < 0.5 ? 0 : randInt(1, Math.min(2, years - 1));
+    let useFYStart = true, months = 12, multipleNeeded = 1, acqDateStr;
+    const acqFY = CURRENT_FY - elapsed;
+    if (elapsed === 0) {
+      const acq = determineAcqPeriod(0.4, 0.4);
+      useFYStart = acq.useFYStart; months = acq.months; multipleNeeded = acq.multipleNeeded;
+      if (useFYStart) {
+        acqDateStr = fyStartDateStr(CURRENT_FY);
+      } else {
+        const d = fyMonthToDate(CURRENT_FY, 13 - months);
+        acqDateStr = acq.useFixedMidYearDate ? dateStr(d.year, d.month) : dateStrAnyDay(d.year, d.month);
+      }
+    } else {
+      const d = fyMonthToDate(acqFY, randInt(1, 12));
+      acqDateStr = d.month === FY_START_MONTH ? dateStr(d.year, d.month) : dateStrAnyDay(d.year, d.month);
+    }
+    const factor = residualRate === 0 ? multipleNeeded : lcm(multipleNeeded, 9);
+    const unit = years * 100 * factor;
+    const lowUSD = item === '建物' ? 500000 : 10000, highUSD = item === '建物' ? 20000000 : 2000000;
+    const lo = Math.max(1, Math.ceil(lowUSD / unit)), hi = Math.max(lo + 3, Math.floor(highUSD / unit));
+    const annualUSD = factor * randInt(lo, hi) * 100;
+    const costUSD = residualRate === 0 ? annualUSD * years : annualUSD * years * 10 / 9;
+    const residualUSD = costUSD - annualUSD * years;
+    const depUSD = elapsed === 0 && !useFYStart ? annualUSD * months / 12 : annualUSD;
+
+    // 為替相場(取得日 → 各期の期中平均・期末)。表の中で同じレートが重ならないようにする
+    const rates = [];
+    const hr = randInt(95, 150);
+    rates.push({ label: acqDateStr, rate: hr, kind: 'hr' });
+    let prevEnd = hr + randInt(-6, 6);
+    for (let fy = acqFY; fy <= CURRENT_FY; fy++) {
+      const end = Math.max(85, prevEnd + randInt(-12, 12));
+      const ar = Math.round((prevEnd + end) / 2) + randInt(-2, 2);
+      rates.push({ label: fyRangeStr(fy), rate: ar, kind: fy === CURRENT_FY ? 'ar' : 'past' });
+      rates.push({ label: fyEndDateStr(fy), rate: end, kind: fy === CURRENT_FY ? 'cr' : 'past' });
+      prevEnd = end;
+    }
+    // 表の中で同じレートが重ならないようにする(重なったら1円ずつずらす)
+    const seen = new Set();
+    rates.forEach(function (x) {
+      const step = Math.random() < 0.5 ? 1 : -1;
+      while (seen.has(x.rate) || x.rate < 80) x.rate += x.rate < 80 ? 1 : step;
+      seen.add(x.rate);
+    });
+    const rateOf = function (kind) { return rates.find(function (x) { return x.kind === kind; }); };
+    const subUseCR = !isBranch && Math.random() < 0.4;
+    const used = isBranch ? rateOf('hr') : (subUseCR ? rateOf('cr') : rateOf('ar'));
+    const answer = depUSD * used.rate;
+
+    const table = '<table class="je-table" style="margin-top:10px;"><tr><td style="text-align:center;font-weight:700;">日付・期間</td><td class="je-amt" style="text-align:center;font-weight:700;">為替相場</td></tr>' +
+      rates.map(function (x) { return '<tr><td>' + x.label + '</td><td class="je-amt" style="white-space:nowrap;">1ドル=' + x.rate + '円</td></tr>'; }).join('') + '</table>';
+    const who = isBranch ? '在外支店' : '在外子会社';
+    const question = '当社の' + who + 'は、' + acqDateStr + 'に' + item + '(取得原価 ' + usd(costUSD) + '、' + residualText(residualRate) + '、耐用年数 ' + years + '年)を取得し、定額法により減価償却している。為替相場は次のとおりである。' +
+      (isBranch ? '' : 'なお、' + who + 'の収益及び費用は' + (subUseCR ? '決算時の為替相場' : '期中平均相場') + 'により換算する。') +
+      (isBranch ? '本店の財務諸表と合算するために在外支店の財務諸表を換算する場合' : '連結財務諸表を作成するために在外子会社の財務諸表を換算する場合') +
+      '、当期(' + fyLabel(CURRENT_FY) + ')の減価償却費を求めなさい。' + table;
+
+    let periodNote;
+    if (elapsed > 0) periodNote = '<div class="step">取得日(' + acqDateStr + ')は前期以前のため、当期は1年分の減価償却費を計上する</div>';
+    else if (useFYStart) periodNote = '<div class="step">当期首(' + acqDateStr + ')に取得しているため、当期は1年分の減価償却費を計上する</div>';
+    else periodNote = '<div class="step">取得日から当期末までの使用月数は' + months + 'か月なので月割計算する</div>';
+    const usdSteps = (residualUSD === 0
+      ? '<div class="step">年間の減価償却費 = 取得原価 ÷ 耐用年数</div><div class="step">' + usd(costUSD) + ' ÷ ' + years + ' = ' + usd(annualUSD) + '</div>'
+      : '<div class="step">年間の減価償却費 = (取得原価 − 残存価額) ÷ 耐用年数</div><div class="step">(' + usd(costUSD) + ' − ' + usd(residualUSD) + ') ÷ ' + years + ' = ' + usd(annualUSD) + '</div>') +
+      (depUSD !== annualUSD ? '<div class="step">当期分 = ' + usd(annualUSD) + ' × ' + months + ' ÷ 12 = ' + usd(depUSD) + '</div>' : '');
+    const rateNote = isBranch
+      ? '<div class="step">在外支店の固定資産は取得時の為替相場で換算し、その費用化額である減価償却費も同じく取得時の為替相場(' + used.label + ':1ドル=' + used.rate + '円)で換算する</div>'
+      : '<div class="step">在外子会社の収益及び費用は、問題文の指示により' + (subUseCR ? '決算時の為替相場(' + used.label + ':1ドル=' + used.rate + '円)' : '期中平均相場(' + used.label + ':1ドル=' + used.rate + '円)') + 'で換算する</div>';
+    const explain = rateNote +
+      '<div class="step" style="margin-top:16px;">まず外貨(ドル)で当期の減価償却費を求める</div>' + periodNote + usdSteps +
+      '<div class="step" style="margin-top:16px;">円換算額 = 外貨建ての減価償却費 × 為替相場</div>' +
+      '<div class="step formula">' + usd(depUSD) + ' × ' + used.rate + '円 = ' + yen(answer) + '</div>';
+
+    return {
+      level: '1', category: (isBranch ? '在外支店' : '在外子会社・' + (subUseCR ? '決算時の為替相場' : '期中平均相場')) + '(' + (elapsed === 0 && !useFYStart ? '月割' : '年間') + ')',
+      assetCost: costUSD * rateOf('hr').rate,
+      question: question,
+      answer: answer,
+      explain: explain
+    };
+  }
+
+  /* ---------- 1級: 連結未実現利益(償却性資産) ---------- */
+  function genConsolidatedUnrealized() {
+    const isDown = Math.random() < 0.5;
+    const seller = isDown ? 'P社' : 'S社', buyer = isDown ? 'S社' : 'P社';
+    const ratio = pick([60, 70, 75, 80, 90]);
+    const item = pick(['備品', '備品', '機械装置', '車両運搬具']);
+    const years = pick(YEARS);
+    const r = Math.random();
+    const elapsed = r < 0.5 ? 0 : (r < 0.8 ? 1 : Math.min(2, years - 1));
+    let useFYStart = true, months = 12, multipleNeeded = 1, saleDateStr;
+    if (elapsed === 0) {
+      const acq = determineAcqPeriod(0.4, 0.4);
+      useFYStart = acq.useFYStart; months = acq.months; multipleNeeded = acq.multipleNeeded;
+      if (useFYStart) {
+        saleDateStr = fyStartDateStr(CURRENT_FY);
+      } else {
+        const d = fyMonthToDate(CURRENT_FY, 13 - months);
+        saleDateStr = acq.useFixedMidYearDate ? dateStr(d.year, d.month) : dateStrAnyDay(d.year, d.month);
+      }
+    } else {
+      const d = fyMonthToDate(CURRENT_FY - elapsed, randInt(1, 12));
+      saleDateStr = d.month === FY_START_MONTH ? dateStr(d.year, d.month) : dateStrAnyDay(d.year, d.month);
+    }
+    const unit = years * multipleNeeded * 100;
+    const bvLo = Math.ceil(600000 / unit), bvHi = Math.max(bvLo + 3, Math.floor(8000000 / unit));
+    const bv = unit * randInt(bvLo, bvHi);
+    const gain = Math.max(unit, Math.round(bv * randInt(10, 40) / 100 / unit) * unit);
+    const price = bv + gain;
+    const mf = elapsed === 0 && !useFYStart ? months : 12;
+    const buyerDep = price / years * mf / 12;
+    const adjust = gain / years * mf / 12;
+    const answer = buyerDep - adjust;
+
+    const question = 'P社はS社の発行済株式の' + ratio + '%を所有し、支配している。' + seller + 'は' + saleDateStr + 'に、帳簿価額 ' + yen(bv) + 'の' + item + 'を' + buyer + 'に' + yen(price) + 'で売却した。' +
+      buyer + 'はこの' + item + 'を、残存価額はゼロ、耐用年数 ' + years + '年の定額法により減価償却している。当期(' + fyLabel(CURRENT_FY) + ')の連結損益計算書に計上される、この' + item + 'に係る減価償却費を求めなさい。';
+
+    const mfText = mf === 12 ? '' : ' × ' + mf + ' ÷ 12';
+    let periodNote;
+    if (elapsed > 0) periodNote = '<div class="step">売却日(' + saleDateStr + ')は前期以前のため、当期は1年分の減価償却費を計上する(前期以前の修正は開始仕訳で処理済みのため、当期の減価償却費には含めない)</div>';
+    else if (useFYStart) periodNote = '<div class="step">当期首(' + saleDateStr + ')に売却しているため、当期は1年分の減価償却費を計上する</div>';
+    else periodNote = '<div class="step">売却日から当期末までの使用月数は' + months + 'か月なので月割計算する</div>';
+    const explain = '<div class="step">連結上は、グループ内部の取引で生じた未実現利益を消去するため、' + buyer + 'の減価償却費のうち未実現利益に対応する分を減額する</div>' +
+      (isDown ? '' : '<div class="step">アップストリームの場合、未実現利益の消去額は非支配株主持分にも負担させるが、連結損益計算書上の減価償却費の金額には影響しない</div>') +
+      '<div class="step">未実現利益 = 売却価額 − 売却時の帳簿価額</div>' +
+      '<div class="step">' + yen(price) + ' − ' + yen(bv) + ' = ' + yen(gain) + '</div>' +
+      periodNote.replace('<div class="step">', '<div class="step" style="margin-top:16px;">') +
+      '<div class="step">' + buyer + 'の減価償却費 = 売却価額 ÷ 耐用年数' + (mf === 12 ? '' : ' × 使用月数 ÷ 12') + '</div>' +
+      '<div class="step">' + yen(price) + ' ÷ ' + years + mfText + ' = ' + yen(buyerDep) + '</div>' +
+      '<div class="step">未実現利益に対応する減価償却費 = 未実現利益 ÷ 耐用年数' + (mf === 12 ? '' : ' × 使用月数 ÷ 12') + '</div>' +
+      '<div class="step">' + yen(gain) + ' ÷ ' + years + mfText + ' = ' + yen(adjust) + '</div>' +
+      '<div class="step" style="margin-top:16px;">連結上の減価償却費 = ' + buyer + 'の減価償却費 − 未実現利益に対応する減価償却費</div>' +
+      '<div class="step formula">' + yen(buyerDep) + ' − ' + yen(adjust) + ' = ' + yen(answer) + '</div>';
+
+    return {
+      level: '1', category: '連結未実現利益(' + (isDown ? 'ダウンストリーム' : 'アップストリーム') + '・' + (mf === 12 ? '年間' : '月割') + ')',
+      assetCost: bv,
+      question: question,
+      answer: answer,
+      explain: explain
+    };
+  }
+
   const TOPICS = [
     { id: 'straight', label: '定額法', levels: ['3', '2'] },
+    { id: 'incidental', label: '付随費用', levels: ['3'] },
     { id: 'declining', label: '定率法', levels: ['2'] },
     { id: 'production', label: '生産高比例法', levels: ['2'] },
     { id: 'sumofyears', label: '級数法', levels: ['1'] },
@@ -5183,6 +5519,7 @@
     { id: 'intangible', label: '無形固定資産', levels: ['2'] },
     { id: 'deferred', label: '繰延資産', levels: ['1'] },
     { id: 'lease', label: 'リース資産', levels: ['2', '1'] },
+    { id: 'installment', label: '割賦購入', levels: ['2'] },
     { id: 'exchange', label: '交換', levels: ['1'] },
     { id: 'capital', label: '資本的支出', levels: ['1'] },
     { id: 'tradein', label: '買換え', levels: ['2', '1'] },
@@ -5193,7 +5530,9 @@
     { id: 'impairment', label: '減損損失', levels: ['1'] },
     { id: 'compression', label: '圧縮記帳', levels: ['2', '1'] },
     { id: 'selfconstruction', label: '自家建設', levels: ['1'] },
-    { id: 'software', label: 'ソフトウェア', levels: ['1'] }
+    { id: 'software', label: 'ソフトウェア', levels: ['1'] },
+    { id: 'foreign', label: '在外支店・在外子会社', levels: ['1'] },
+    { id: 'unrealized', label: '連結未実現利益', levels: ['1'] }
   ];
 
   const PROBLEM_TYPES = [
@@ -5202,6 +5541,7 @@
     { level: '2', topic: 'straight', fn: genStraightLineByRate },
     { level: '2', topic: 'straight', fn: genPeriodStraightLineByRate },
     { level: '3', topic: 'straight', fn: genPeriodStraightLine },
+    { level: '3', topic: 'incidental', fn: genIncidentalCosts },
     { level: '2', topic: 'declining', fn: genDecliningSimple },
     { level: '2', topic: 'declining', fn: genDecliningSimple },
     { level: '2', topic: 'declining', fn: genDecliningDeriveRate },
@@ -5216,6 +5556,7 @@
     { level: '1', topic: 'software', fn: genSoftwareAmortization },
     { level: '2', topic: 'straight', fn: genEstimateFromBookValue },
     { level: '2', topic: 'lease', fn: genLeaseAsset },
+    { level: '2', topic: 'installment', fn: genInstallmentPurchase },
     { level: '1', topic: 'lease', fn: genLeaseAssetLevel1, weight: 7 },
     { level: '1', topic: 'lease', fn: genSaleAndLeaseback, weight: 3 },
     { level: '1', topic: 'exchange', fn: genAssetExchange },
@@ -5242,10 +5583,53 @@
     { level: '1', topic: 'compression', fn: genCompressionReserveMethod },
     { level: '1', topic: 'compression', fn: genCompressionReserveMethodDeclining },
     { level: '1', topic: 'compression', fn: genCompressionInsurance },
-    { level: '1', topic: 'selfconstruction', fn: genSelfConstruction }
+    { level: '1', topic: 'selfconstruction', fn: genSelfConstruction },
+    { level: '1', topic: 'foreign', fn: genForeignOperation },
+    { level: '1', topic: 'unrealized', fn: genConsolidatedUnrealized }
   ];
 
   function levelLabel(l) { return l === '3' ? '3級' : (l === '2' ? '2級' : '1級'); }
+
+  // 出題関数から論点名(TOPICS の label)を求める(結果発表の論点別成績に使用)
+  function topicLabelOfFn(fn) {
+    const t = PROBLEM_TYPES.find(function (x) { return x.fn === fn; });
+    const topic = t ? TOPICS.find(function (x) { return x.id === t.topic; }) : null;
+    return topic ? topic.label : '';
+  }
+
+  // 「この問題を報告する」リンク:問題文と正答を入力済みの状態でお問い合わせフォームを開く
+  const REPORT_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScCEm_oxqjb2fnk4E5-ko0RU8uBDGzriEG1r4G6XmYSlHN_Rw/viewform';
+  const REPORT_FORM_ENTRY = 'entry.670715906'; // 「お問い合わせ内容を記入してください。」の欄
+  const REPORT_QUESTION_MAX = 800;
+  function htmlToReportText(html) {
+    return html
+      .replace(/<table/g, '\n<table').replace(/<\/(tr|div|p|caption|table)>/g, '\n').replace(/<br\s*\/?>/g, '\n')
+      .replace(/<\/(td|th)>/g, ' ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+      .replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim();
+  }
+  // Googleフォームは URL が約8,000文字を超えると開けないため、超える場合は解説の後ろを省略する
+  const REPORT_URL_MAX = 7800;
+  function reportLinkHTML(tag, questionHtml, answer, userAnswer, explainHtml) {
+    let q = htmlToReportText(questionHtml);
+    if (q.length > REPORT_QUESTION_MAX) q = q.slice(0, REPORT_QUESTION_MAX) + '…(以下略)';
+    const head = '【報告内容】\n\n\n' +
+      '【報告する問題】\n' + tag + '\n' + q + '\n' +
+      'サイトの正答：' + yen(answer) + '\n' +
+      'あなたの解答：' + (userAnswer === null ? '未回答' : yen(userAnswer)) + '\n\n' +
+      '【解説】\n';
+    const base = REPORT_FORM_URL + '?usp=pp_url&amp;' + REPORT_FORM_ENTRY + '=';
+    const enc = function (s) { return encodeURIComponent(s).replace(/'/g, '%27'); };
+    let ex = htmlToReportText(explainHtml || '');
+    let url = base + enc(head + ex);
+    while (url.length > REPORT_URL_MAX && ex.length > 0) {
+      ex = ex.slice(0, Math.max(0, ex.length - 20));
+      url = base + enc(head + ex + '…(以下略)');
+    }
+    return '<a class="report-link" href="' + url + '" target="_blank" rel="noopener noreferrer">' +
+      '<span class="report-icon" aria-hidden="true">error</span><span class="report-text">この問題を報告する</span></a>';
+  }
 
   let currentTypeFn = null;
 
@@ -5355,6 +5739,7 @@
   const verdictSub = document.getElementById('verdictSub');
   const correctionEl = document.getElementById('correction');
   const explainBody = document.getElementById('explainBody');
+  const reportRow = document.getElementById('reportRow');
   const correctCountEl = document.getElementById('correctCount');
   const totalCountEl = document.getElementById('totalCount');
   const problemCard = document.getElementById('problemCard');
@@ -5462,7 +5847,8 @@
       userAnswer: userAnswer,
       ok: isCorrect,
       explain: p.explain,
-      genFn: currentTypeFn
+      genFn: currentTypeFn,
+      topic: topicLabelOfFn(currentTypeFn)
     });
 
     if (isCorrect) { state.correct += 1; state.streak += 1; } else { state.streak = 0; }
@@ -5493,6 +5879,7 @@
     }
 
     explainBody.innerHTML = p.explain;
+    reportRow.innerHTML = reportLinkHTML(levelLabel(p.level) + '・' + p.category, p.question, p.answer, userAnswer, p.explain);
     feedbackEl.classList.add('show');
     requestAnimationFrame(function () { setTimeout(function () { checkTableScrollHints(explainBody); }, 350); });
 
@@ -5575,7 +5962,8 @@
         userAnswer: userAnswer,
         ok: isCorrect,
         explain: p.explain,
-        genFn: item.genFn
+        genFn: item.genFn,
+        topic: topicLabelOfFn(item.genFn)
       });
     });
     correctCountEl.textContent = state.correct;
@@ -5631,6 +6019,27 @@
       html += '<div class="results-sub" style="margin-top:16px;">高い正答率です。間違えた問題を復習して全問正解を目指しましょう。</div>';
     }
 
+    // 論点別の成績(2論点以上出題されたときのみ表示)
+    const topicStats = [];
+    state.history.forEach(function (h) {
+      if (!h.topic) return;
+      let s = topicStats.find(function (x) { return x.label === h.topic; });
+      if (!s) { s = { label: h.topic, ok: 0, total: 0 }; topicStats.push(s); }
+      s.total += 1;
+      if (h.ok) s.ok += 1;
+    });
+    if (topicStats.length >= 2) {
+      const topicOrder = TOPICS.map(function (t) { return t.label; });
+      topicStats.sort(function (a, b) { return topicOrder.indexOf(a.label) - topicOrder.indexOf(b.label); });
+      html += '<div class="topic-stats"><div class="topic-stats-title">論点別の成績</div><div class="topic-stats-grid">';
+      topicStats.forEach(function (s) {
+        const cls = s.ok === s.total ? 'ok' : (s.ok === 0 ? 'ng' : 'part');
+        html += '<div class="topic-stat ' + cls + '"><span class="topic-stat-name">' + s.label + '</span>' +
+          '<span class="topic-stat-num">' + s.ok + ' / ' + s.total + '</span></div>';
+      });
+      html += '</div></div>';
+    }
+
     html += '<div class="review-section show">';
     state.history.forEach(function (h) {
       const yourAnswerText = h.userAnswer === null ? '未回答' : yen(h.userAnswer);
@@ -5642,6 +6051,7 @@
         '<div class="review-q">' + h.question + '</div>' +
         compareRow +
         '<div class="depre-explain">' + h.explain + '</div>' +
+        '<div class="report-row">' + reportLinkHTML(h.tag, h.question, h.answer, h.userAnswer, h.explain) + '</div>' +
         '</div>';
     });
     html += '</div>';
