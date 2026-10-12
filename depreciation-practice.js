@@ -6119,7 +6119,14 @@
     quitBtn.style.display = 'none';
     correctionEl.style.display = 'none';
 
-    answerInput.focus();
+    // 出題ページは必ずページの一番上から表示する。
+    // スマホ・タブレット(タッチ操作)ではキーボードが開いて入力欄までスクロールされるため自動フォーカスしない。
+    // パソコンではスクロールさせずに入力欄へフォーカスする
+    const isTouch = window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (!isTouch) {
+      try { answerInput.focus({ preventScroll: true }); } catch (e) { answerInput.focus(); }
+    }
+    window.scrollTo(0, 0);
   }
 
   function grade() {
@@ -6209,7 +6216,7 @@
     nextBtn.style.display = '';
     quitBtn.disabled = false;
     quitBtn.style.display = state.qNo >= SESSION_MAX ? 'none' : '';
-    nextBtn.focus();
+    try { nextBtn.focus({ preventScroll: true }); } catch (e) { nextBtn.focus(); }
   }
 
   function renderBatch() {
