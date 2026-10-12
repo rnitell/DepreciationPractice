@@ -558,8 +558,11 @@ html, body { margin: 0; padding: 0; }
   z-index: 1;
   left: 0;
   top: 0;
-  animation: spark-fly 0.75s ease-in-out forwards;
+  will-change: transform, opacity;
+  transform: translate(-50%, -50%);
 }
+/* Web Animations APIが使えないブラウザ向けの予備 */
+.spark-particle.spark-css { animation: spark-fly 0.75s ease-in-out forwards; }
 .spark-particle svg { display: block; overflow: visible; }
 @keyframes spark-fly {
   0% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
@@ -662,21 +665,22 @@ html, body { margin: 0; padding: 0; }
 .depre-explain .step { color: var(--text); }
 .depre-explain .formula { font-family: 'JetBrains Mono', monospace; color: var(--primary-deep); font-weight: 700; }
 
-.je-table { width: 100%; margin-top: 6px; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 2.0; }
+.je-table { width: 100%; margin-top: 6px; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.4; }
 .year-table-wrap { overflow-x: auto; margin: 8px 0; }
 .group-dep-table-wrap { overflow-x: auto; margin: 8px 0; }
 .soyd-table-wrap { overflow-x: auto; margin: 8px 0; }
 .soyd-table { border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 11px; width: 100%; white-space: nowrap; line-height: 2.0; }
 .soyd-table td { border: 1px solid #E2DCD3; padding: 5px 6px; color: var(--text); text-align: right; background: #FFFFFF; }
-.soyd-table td.soyd-year { text-align: center; }
+.soyd-table td.soyd-year { font-weight: 700; background: #ede3d3; text-align: left; }
 .soyd-table td.soyd-frac { text-align: center; }
 .soyd-table td.soyd-head { font-weight: 700; background: #ede3d3; text-align: center; }
 .soyd-table tr.soyd-current td { font-weight: 700; background: #FFD8AD; }
 .depre-app.dark-mode .soyd-table td { border-color: #3A5153; background: #1E3336; }
+.depre-app.dark-mode .soyd-table td.soyd-year,
 .depre-app.dark-mode .soyd-table td.soyd-head { background: var(--surface-alt); }
 .depre-app.dark-mode .soyd-table tr.soyd-current td { background: #3A2F1E; }
-.group-dep-table { border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 100%; line-height: 2.0; }
-.group-dep-table td { border: 1px solid #E2DCD3; padding: 5px 8px; color: var(--text); text-align: right; background: #FFFFFF; }
+.group-dep-table { border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 100%; line-height: 1.4; }
+.group-dep-table td { border: 1px solid #E2DCD3; padding: 8px 8px; color: var(--text); text-align: right; background: #FFFFFF; }
 .group-dep-table td.gd-name { text-align: left; white-space: nowrap; font-weight: 700; background: #ede3d3; }
 .group-dep-table td.gd-head { font-weight: 700; background: #ede3d3; text-align: center; }
 .group-dep-table td.gd-head.gd-name-head { text-align: left; }
@@ -689,13 +693,13 @@ html, body { margin: 0; padding: 0; }
 .sw-judge-table-wrap { overflow-x: auto; margin: 8px 0; }
 
 .sw-judge-table { border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 100%; line-height: 2.0; }
-.sw-judge-table td { border: 1px solid #E2DCD3; padding: 6px 8px; color: var(--text); background: #FFFFFF; vertical-align: top; }
+.sw-judge-table td { border: 1px solid #E2DCD3; padding: 8px 8px; color: var(--text); background: #FFFFFF; vertical-align: top; line-height: 1.4; }
 .sw-judge-table td.sj-head { font-weight: 700; background: #ede3d3; text-align: center; }
 .sw-judge-table td.sj-label { text-align: left; font-weight: 700; background: #FFFFFF; font-family: 'Zen Kaku Gothic New', sans-serif; }
 .sw-judge-table td.sj-amt { text-align: right; }
 .sw-judge-table td.sj-account { text-align: center; font-weight: 700; }
 .sw-judge-table tr.sj-asset td.sj-amt, .sw-judge-table tr.sj-asset td.sj-account, .sw-judge-table tr.sj-asset td.sj-label { background: var(--green-soft); }
-.sw-judge-table .sj-reason { font-size: 10px; color: var(--text-soft); margin-top: 3px; font-weight: 500; font-family: 'Zen Kaku Gothic New', sans-serif; }
+.sw-judge-table .sj-reason { font-size: 10px; color: var(--text-soft); margin-top: 2px; font-weight: 500; font-family: 'Zen Kaku Gothic New', sans-serif; line-height: 1.4; }
 .depre-app.dark-mode .sw-judge-table td { border-color: #3A5153; background: #1E3336; }
 .depre-app.dark-mode .sw-judge-table td.sj-head { background: var(--surface-alt); }
 .depre-app.dark-mode .sw-judge-table tr.sj-asset td.sj-amt, .depre-app.dark-mode .sw-judge-table tr.sj-asset td.sj-account, .depre-app.dark-mode .sw-judge-table tr.sj-asset td.sj-label { background: #1F3D33; }
@@ -708,12 +712,14 @@ html, body { margin: 0; padding: 0; }
 .year-table td.yt-label { font-weight: 700; background: #ede3d3; text-align: left; white-space: nowrap; }
 .year-table td.yt-head { font-weight: 700; background: #ede3d3; text-align: center; }
 .year-table td.yt-method { text-align: center; }
+/* セル内で改行する表(連結未実現利益):改行した行どうしの間隔を詰める */
+.year-table.yt-compact td { line-height: 1.3; padding: 7px 5px; }
 .year-table td.yt-adopted-normal { color: var(--success); }
 .year-table td.yt-adopted-revised { color: var(--danger); }
 .depre-app.dark-mode .year-table td { border-color: #3A5153; background: #1E3336; }
 .depre-app.dark-mode .year-table td.yt-label,
 .depre-app.dark-mode .year-table td.yt-head { background: var(--surface-alt); }
-.je-table td { border: 1px solid #D6DCE8; padding: 6px 10px; color: var(--text); }
+.je-table td { border: 1px solid #D6DCE8; padding: 8px 10px; color: var(--text); }
 .je-table .je-amt { text-align: right; }
 
 .depre-foot-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
@@ -899,6 +905,12 @@ html, body { margin: 0; padding: 0; }
 .print-a-number { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12.5px; color: #FF8A3D; margin-bottom: 4px; }
 .print-a-answer { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; color: #17B978; margin-bottom: 8px; }
 .print-a-explain { font-size: 12.5px; line-height: 1.8; color: #3A3355; background: #FFF6E8; border-radius: 10px; padding: 10px 14px; }
+/* 長い解説:冒頭(第◯問〜最初の表)はまとめ、残りは表・行単位でページをまたげるようにする */
+.print-a-item.print-a-long { page-break-inside: auto; break-inside: auto; }
+.print-a-keep { page-break-inside: avoid; break-inside: avoid; }
+.print-a-explain-top { border-bottom-left-radius: 0; border-bottom-right-radius: 0; padding-bottom: 0; }
+.print-a-explain-rest { border-top-left-radius: 0; border-top-right-radius: 0; padding-top: 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.print-a-explain-rest > * { page-break-inside: avoid; break-inside: avoid; }
 
 .no-print { }
 
@@ -915,8 +927,11 @@ html, body { margin: 0; padding: 0; }
   .print-answer-line, .print-sheet-meta { color: #6B6485 !important; }
   .print-answer-blank { border-bottom-color: #6B6485 !important; }
   .print-a-item { border-top-color: #E2DCD3 !important; }
-  .print-a-explain { background: #FFF6E8 !important; color: #3A3355 !important; }
+  .print-a-explain { background: #FFF6E8 !important; color: #3A3355 !important; font-size: 12px; line-height: 1.6; }
   .print-q-number .print-type-tag, .print-a-number span { background: #6B6485 !important; color: #FFFFFF !important; }
+  /* 連結未実現利益の表:印刷時はセル内の改行をなくして1行で表示する */
+  .print-sheet .year-table.yt-compact br { display: none; }
+  .print-sheet .year-table.yt-compact .yt-revised-tag { margin-right: 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
