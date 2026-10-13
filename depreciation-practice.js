@@ -6462,7 +6462,8 @@
         hashLevel = getLevelLabel(hLevel);
       }
       const text = '減価償却ドリル 難易度' + difficultyText + 'で' + state.total + '問中' + state.correct + '問正解しました！ #簿記検定 #簿記' + hashLevel + ' #減価償却';
-      const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+      const SITE_URL = 'https://rnitell.github.io/DepreciationPractice/';
+      const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(SITE_URL);
       window.open(url, '_blank', 'noopener');
     });
   }
