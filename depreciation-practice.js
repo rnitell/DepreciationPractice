@@ -6428,7 +6428,7 @@
         }
         hashLevel = getLevelLabel(highestLevel);
 
-        if (entries.length >= 6) {
+        if (entries.length >= 12) {
           const levelsUsed = [];
           ['3', '2', '1'].forEach(function (lv) {
             if (entries.some(function (e) { return e.level === lv; }) && levelsUsed.indexOf(lv) === -1) levelsUsed.push(lv);
